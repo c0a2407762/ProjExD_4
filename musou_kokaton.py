@@ -102,6 +102,45 @@ class Bird(pg.sprite.Sprite):
         screen.blit(self.image, self.rect)
 
 
+class Shield(pg.sprite.Sprite):
+    """
+    防御壁に関するクラス
+    """
+    def __init__(self, bird: Bird, life: int):
+        """
+        こうかとんの前に防御壁を出現させ、着弾を防ぐ
+        引数1 angle：角度を決める
+        引数2 offset：こうかとんとシールドとの距離
+        """
+        super().__init__()
+        self.life = life
+
+        vx, vy = bird.dire
+        angle = math.degrees(math.atan2(-vy, vx))
+
+        width = 20
+        height = bird.rect.height * 2
+
+        self.image0 = pg.Surface((width, height), pg.SRCALPHA)
+        pg.draw.rect(self.image0, (0, 0, 255), (0, 0, width, height))
+
+        self.image = pg.transform.rotozoom(self.image0, angle, 1.0)
+        self.rect = self.image.get_rect()
+
+        offset = 60
+        self.rect.centerx = bird.rect.centerx + vx * offset
+        self.rect.centery = bird.rect.centery + vy * offset
+
+    def update(self):
+        """
+        lifeが0になったらkillを行う
+        引数 screen：画面Surface
+        """
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
+
+
 class Bomb(pg.sprite.Sprite):
     """
     爆弾に関するクラス
@@ -253,6 +292,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    shields = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
@@ -263,6 +303,10 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_s:
+                if score.value >= 50 and len(shields) == 0:
+                    score.value -= 50
+                    shields.add(Shield(bird, 400))
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -288,6 +332,10 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+        
+        for shield, hit_bombs in pg.sprite.groupcollide(shields, bombs, False, True).items():
+            for bomb in hit_bombs:
+                exps.add(Explosion(bomb, 30))
 
         bird.update(key_lst, screen)
         beams.update()
@@ -298,6 +346,8 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        shields.update()
+        shields.draw(screen)
         score.update(screen)
         pg.display.update()
         tmr += 1
